@@ -5,12 +5,57 @@ import os
 from PIL import Image
 
 
-def resize_image(input_data):
-    if input_data['output_dir'] is None:
-        input_data['output_dir'] = os.path.dirname(input_data['image_name'])
+def resize_image(image, input_data):
+    if input_data['scale'] is not None and input_data['width'] is None and input_data['height'] is None:
+        return scale_resize(image, input_data)
+    elif input_data['scale'] is None and input_data['width'] is not None and input_data['height'] is None:
+        return width_resize(image, input_data)
+    elif input_data['scale'] is None and input_data['width'] is None and input_data['height'] is not None:
+        return height_resize(image, input_data)
+    elif input_data['scale'] is None and input_data['width'] is not None and input_data['height'] is not None:
+        return width_and_height_resize(image, input_data)
+    else:
+        logging.error(
+            '''
+            Incorrect input parameters. Use -h or --help to get help message.
+            Possible combinations of parameters: --scale; --width; --height; --width and --height in common
+            '''
+        )
 
-    image = get_image(input_data['image_name'])
-    if image is not None:
+
+def scale_resize(image, input_data):
+    current_width, current_height = image.size
+    new_size = (round(current_width * input_data['scale']), round(current_height * input_data['scale']))
+    return image.resize(new_size)
+
+
+def width_resize(image, input_data):
+    current_width, current_height = image.size
+    new_height = round(input_data['width'] * current_height / current_width)
+    new_size = (input_data['width'], new_height)
+    return image.resize(new_size)
+
+
+def height_resize(image, input_data):
+    current_width, current_height = image.size
+    new_width = round(input_data['height'] * current_width / current_height)
+    new_size = (new_width, input_data['height'])
+    return image.resize(new_size)
+
+
+def width_and_height_resize(image, input_data):
+    current_width, current_height = image.size
+    current_ratio = current_width / current_height
+    new_ratio = input_data['width'] / input_data['height']
+    if new_ratio != current_ratio:
+        logging.warning("Proportions of new and initial images don't coincide")
+    new_size = (input_data['width'], input_data['height'])
+    return image.resize(new_size)
+
+
+def get_image(image_path):
+    try:
+        image = Image.open(image_path)
         current_width, current_height = image.size
         logging.info(
             'Image "%s" with size %dx%d is loaded',
@@ -18,41 +63,7 @@ def resize_image(input_data):
             current_width,
             current_height
         )
-
-        if input_data['scale'] is not None and input_data['width'] is None and input_data['height'] is None:
-            new_size = (round(current_width * input_data['scale']), round(current_height * input_data['scale']))
-            new_image = image.resize(new_size)
-            save_image(new_image, get_new_image_file_name(*new_image.size, input_data))
-        elif input_data['scale'] is None and input_data['width'] is not None and input_data['height'] is None:
-            new_height = round(input_data['width'] * current_height / current_width)
-            new_size = (input_data['width'], new_height)
-            new_image = image.resize(new_size)
-            save_image(new_image, get_new_image_file_name(*new_image.size, input_data))
-        elif input_data['scale'] is None and input_data['width'] is None and input_data['height'] is not None:
-            new_width = round(input_data['height'] * current_width / current_height)
-            new_size = (new_width, input_data['height'])
-            new_image = image.resize(new_size)
-            save_image(new_image, get_new_image_file_name(*new_image.size, input_data))
-        elif input_data['scale'] is None and input_data['width'] is not None and input_data['height'] is not None:
-            current_ratio = current_width / current_height
-            new_ratio = input_data['width'] / input_data['height']
-            if new_ratio != current_ratio:
-                logging.warning("Proportions of new and initial images don't coincide")
-            new_size = (input_data['width'], input_data['height'])
-            new_image = image.resize(new_size)
-            save_image(new_image, get_new_image_file_name(*new_image.size, input_data))
-        else:
-            logging.error(
-                '''
-                Incorrect input parameters. Use -h or --help to get help message.
-                Possible combinations of parameters: --scale; --width; --height; --width and --height in common
-                '''
-            )
-
-
-def get_image(image_path):
-    try:
-        return Image.open(image_path)
+        return image
     except IOError:
         logging.exception('Open image file "%s" error', image_path)
 
@@ -93,6 +104,14 @@ if __name__ == '__main__':
         'scale': args.scale
     }
 
-    resize_image(input_data)
+    if input_data['output_dir'] is None:
+        input_data['output_dir'] = os.path.dirname(input_data['image_name'])
+
+    image = get_image(input_data['image_name'])
+
+    if image is not None:
+        new_image = resize_image(image, input_data)
+        if new_image is not None:
+            save_image(new_image, get_new_image_file_name(*new_image.size, input_data))
 
 
