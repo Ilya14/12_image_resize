@@ -7,14 +7,15 @@ from PIL import Image
 
 def resize_image(image, input_data):
     if input_data['scale'] is not None and input_data['width'] is None and input_data['height'] is None:
-        return scale_resize(image, input_data)
+        new_size = get_new_size_by_scale(image, input_data['scale'])
     elif input_data['scale'] is None and input_data['width'] is not None and input_data['height'] is None:
-        return width_resize(image, input_data)
+        new_size = get_new_size_by_width(image, input_data['width'])
     elif input_data['scale'] is None and input_data['width'] is None and input_data['height'] is not None:
-        return height_resize(image, input_data)
+        new_size = get_new_size_by_height(image, input_data['height'])
     elif input_data['scale'] is None and input_data['width'] is not None and input_data['height'] is not None:
-        return width_and_height_resize(image, input_data)
+        new_size = get_new_size_by_width_and_height(image, input_data['width'], input_data['height'])
     else:
+        new_size = None
         logging.error(
             '''
             Incorrect input parameters. Use -h or --help to get help message.
@@ -22,39 +23,34 @@ def resize_image(image, input_data):
             '''
         )
 
+    if new_size is not None:
+        return image.resize(new_size)
 
-def scale_resize(image, input_data):
+
+def get_new_size_by_scale(image, scale):
     current_width, current_height = image.size
-    new_size = (round(current_width * input_data['scale']), round(current_height * input_data['scale']))
-    return resize(image, new_size)
+    return round(current_width * scale), round(current_height * scale)
 
 
-def width_resize(image, input_data):
+def get_new_size_by_width(image, new_width):
     current_width, current_height = image.size
-    new_height = round(input_data['width'] * current_height / current_width)
-    new_size = (input_data['width'], new_height)
-    return resize(image, new_size)
+    new_height = round(new_width * current_height / current_width)
+    return new_width, new_height
 
 
-def height_resize(image, input_data):
+def get_new_size_by_height(image, new_height):
     current_width, current_height = image.size
-    new_width = round(input_data['height'] * current_width / current_height)
-    new_size = (new_width, input_data['height'])
-    return resize(image, new_size)
+    new_width = round(new_height * current_width / current_height)
+    return new_width, new_height
 
 
-def width_and_height_resize(image, input_data):
+def get_new_size_by_width_and_height(image, new_width, new_height):
     current_width, current_height = image.size
     current_ratio = current_width / current_height
-    new_ratio = input_data['width'] / input_data['height']
+    new_ratio = new_width / new_height
     if new_ratio != current_ratio:
         logging.warning("Proportions of new and initial images don't coincide")
-    new_size = (input_data['width'], input_data['height'])
-    return resize(image, new_size)
-
-
-def resize(image, size):
-    return image.resize(size)
+    return new_width, new_height
 
 
 def get_image(image_path):
